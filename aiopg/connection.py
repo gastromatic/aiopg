@@ -18,7 +18,7 @@ from psycopg2.extensions import (
 )
 
 from .cursor import Cursor
-from .utils import _ContextManager, create_future
+from .utils import _ContextManager, create_future, ClosableQueue
 
 __all__ = ('connect',)
 
@@ -121,7 +121,7 @@ class Connection:
         self._cancellation_waiter = None
         self._echo = echo
         self._cursor_instance = None
-        self._notifies = asyncio.Queue(loop=loop)
+        self._notifies = ClosableQueue(loop=loop)
         self._weakref = weakref.ref(self)
         self._loop.add_reader(self._fileno, self._ready, self._weakref)
 
@@ -164,6 +164,7 @@ class Connection:
                     # chain exception otherwise
                     exc2.__cause__ = exc
                     exc = exc2
+            self.notifies.close(exc)
             if waiter is not None and not waiter.done():
                 waiter.set_exception(exc)
         else:

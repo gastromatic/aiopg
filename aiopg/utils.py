@@ -220,3 +220,30 @@ class _PoolCursorContextManager:
                 self._pool = None
                 self._conn = None
                 self._cur = None
+
+
+class ClosableQueue(asyncio.Queue):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__close_exception = None
+        self.__close_event = asyncio.Event()
+
+    def close(self, exception):
+        self.__close_exception = exception
+        self.__close_event.set()
+
+    async def get(self):
+        get = self._loop.create_task(super().get())
+        closed = self._loop.create_task(self.__close_event.wait())
+        _, pending = await asyncio.wait([get, closed],
+                                        return_when=asyncio.FIRST_COMPLETED)
+        for task in pending:
+            task.cancel()
+        if get.done():
+            return get.result()
+        assert closed.done()
+        ex = self.__close_exception
+        self.__close_exception = None
+        self.__close_event.clear()
+        raise ex
