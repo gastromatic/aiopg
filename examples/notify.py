@@ -1,6 +1,7 @@
 import asyncio
-import psycopg2
+
 import aiopg
+import psycopg2
 
 dsn = 'dbname=aiopg user=aiopg password=passwd host=127.0.0.1'
 
